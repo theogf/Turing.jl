@@ -320,7 +320,7 @@ function AbstractMCMC.bundle_samples(
     spl::Sampler,
     N::Integer,
     ts::Vector{<:AbstractTransition};
-    raw_output::Bool=true,
+    raw_output::Bool=false,
     discard_adapt::Bool=true,
     save_state=true,
     kwargs...
