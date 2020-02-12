@@ -785,25 +785,26 @@ $$</p>
 
 <p>where <script type="math/tex">\alpha</script> is an intercept term common to all observations, <script type="math/tex">\boldsymbol{\beta}</script> is a coefficient vector, <script type="math/tex">\boldsymbol{X_i}</script> is the observed data for car <script type="math/tex">i</script>, and <script type="math/tex">\sigma^2</script> is a common variance term.</p>
 
-<p>For <script type="math/tex">\sigma^2</script>, we assign a prior of <code class="language-plaintext highlighter-rouge">TruncatedNormal(0,100,0,Inf)</code>. This is consistent with <a href="http://www.stat.columbia.edu/~gelman/research/published/taumain.pdf">Andrew Gelman’s recommendations</a> on noninformative priors for variance. The intercept term (<script type="math/tex">\alpha</script>) is assumed to be normally distributed with a mean of zero and a variance of three. This represents our assumptions that miles per gallon can be explained mostly by our assorted variables, but a high variance term indicates our uncertainty about that. Each coefficient is assumed to be normally distributed with a mean of zero and a variance of 10. We do not know that our coefficients are different from zero, and we don’t know which ones are likely to be the most important, so the variance term is quite high. Lastly, each observation <script type="math/tex">y_i</script> is distributed according to the calculated <code class="language-plaintext highlighter-rouge">mu</code> term given by <script type="math/tex">\alpha + \boldsymbol{\beta}^T\boldsymbol{X_i}</script>.</p>
+<p>For <script type="math/tex">\sigma^2</script>, we assign a prior of <code class="language-plaintext highlighter-rouge">TruncatedNormal(0,100,0,Inf)</code>. This is consistent with <a href="http://www.stat.columbia.edu/~gelman/research/published/taumain.pdf">Andrew Gelman’s recommendations</a> on noninformative priors for variance. The intercept term (<script type="math/tex">\alpha</script>) is assumed to be normally distributed with a mean of zero and a variance of three. This represents our assumptions that miles per gallon can be explained mostly by our assorted variables, but a high variance term indicates our uncertainty about that. Each coefficient is assumed to be normally distributed with a mean of zero and a variance of 10. We do not know that our coefficients are different from zero, and we don’t know which ones are likely to be the most important, so the variance term is quite high. The syntax <code class="language-plaintext highlighter-rouge">::Type{T}=Vector{Float64}</code> allows us to maintain type stability in our model – for more information, please review the <a href="https://turing.ml/dev/docs/using-turing/performancetips#make-your-model-type-stable">performance tips</a>. Lastly, each observation <script type="math/tex">y_i</script> is distributed according to the calculated <code class="language-plaintext highlighter-rouge">mu</code> term given by <script type="math/tex">\alpha + \boldsymbol{\beta}^T\boldsymbol{X_i}</script>.</p>
 
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Bayesian linear regression.</span>
-<span class="nd">@model</span> <span class="n">linear_regression</span><span class="x">(</span><span class="n">x</span><span class="x">,</span> <span class="n">y</span><span class="x">,</span> <span class="n">n_obs</span><span class="x">,</span> <span class="n">n_vars</span><span class="x">)</span> <span class="o">=</span> <span class="k">begin</span>
+<span class="nd">@model</span> <span class="n">linear_regression</span><span class="x">(</span><span class="n">x</span><span class="x">,</span> <span class="n">y</span><span class="x">,</span> <span class="n">n_obs</span><span class="x">,</span> <span class="n">n_vars</span><span class="x">,</span> <span class="o">::</span><span class="kt">Type</span><span class="x">{</span><span class="n">T</span><span class="x">}</span><span class="o">=</span><span class="kt">Vector</span><span class="x">{</span><span class="kt">Float64</span><span class="x">})</span> <span class="k">where</span> <span class="x">{</span><span class="n">T</span><span class="x">}</span> <span class="o">=</span> <span class="k">begin</span>
     <span class="c"># Set variance prior.</span>
-    <span class="n">σ₂</span> <span class="o">~</span> <span class="n">TruncatedNormal</span><span class="x">(</span><span class="mi">0</span><span class="x">,</span><span class="mi">100</span><span class="x">,</span> <span class="mi">0</span><span class="x">,</span> <span class="nb">Inf</span><span class="x">)</span>
+    <span class="n">σ₂</span> <span class="o">~</span> <span class="n">truncated</span><span class="x">(</span><span class="n">Normal</span><span class="x">(</span><span class="mi">0</span><span class="x">,</span><span class="mi">100</span><span class="x">),</span> <span class="mi">0</span><span class="x">,</span> <span class="nb">Inf</span><span class="x">)</span>
     
     <span class="c"># Set intercept prior.</span>
     <span class="n">intercept</span> <span class="o">~</span> <span class="n">Normal</span><span class="x">(</span><span class="mi">0</span><span class="x">,</span> <span class="mi">3</span><span class="x">)</span>
     
     <span class="c"># Set the priors on our coefficients.</span>
-    <span class="n">coefficients</span> <span class="o">=</span> <span class="kt">Array</span><span class="x">{</span><span class="kt">Real</span><span class="x">}(</span><span class="nb">undef</span><span class="x">,</span> <span class="n">n_vars</span><span class="x">)</span>
-    <span class="n">coefficients</span> <span class="o">~</span> <span class="x">[</span><span class="n">Normal</span><span class="x">(</span><span class="mi">0</span><span class="x">,</span> <span class="mi">10</span><span class="x">)]</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="n">T</span><span class="x">(</span><span class="nb">undef</span><span class="x">,</span> <span class="n">n_vars</span><span class="x">)</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">n_vars</span>
+        <span class="n">coefficients</span><span class="x">[</span><span class="n">i</span><span class="x">]</span> <span class="o">~</span> <span class="n">Normal</span><span class="x">(</span><span class="mi">0</span><span class="x">,</span> <span class="mi">10</span><span class="x">)</span>
+    <span class="k">end</span>
     
     <span class="c"># Calculate all the mu terms.</span>
     <span class="n">mu</span> <span class="o">=</span> <span class="n">intercept</span> <span class="o">.+</span> <span class="n">x</span> <span class="o">*</span> <span class="n">coefficients</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="o">:</span><span class="n">n_obs</span>
-        <span class="n">y</span><span class="x">[</span><span class="n">i</span><span class="x">]</span> <span class="o">~</span> <span class="n">Normal</span><span class="x">(</span><span class="n">mu</span><span class="x">[</span><span class="n">i</span><span class="x">],</span> <span class="n">σ₂</span><span class="x">)</span>
-    <span class="k">end</span>
+    <span class="n">y</span> <span class="o">~</span> <span class="n">MvNormal</span><span class="x">(</span><span class="n">mu</span><span class="x">,</span> <span class="n">σ₂</span><span class="x">)</span>
 <span class="k">end</span><span class="x">;</span>
 </code></pre></div></div>
 
@@ -812,9 +813,6 @@ $$</p>
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">n_obs</span><span class="x">,</span> <span class="n">n_vars</span> <span class="o">=</span> <span class="n">size</span><span class="x">(</span><span class="n">train</span><span class="x">)</span>
 <span class="n">model</span> <span class="o">=</span> <span class="n">linear_regression</span><span class="x">(</span><span class="n">train</span><span class="x">,</span> <span class="n">train_label</span><span class="x">,</span> <span class="n">n_obs</span><span class="x">,</span> <span class="n">n_vars</span><span class="x">)</span>
 <span class="n">chain</span> <span class="o">=</span> <span class="n">sample</span><span class="x">(</span><span class="n">model</span><span class="x">,</span> <span class="n">NUTS</span><span class="x">(</span><span class="mf">0.65</span><span class="x">),</span> <span class="mi">3000</span><span class="x">);</span>
-</code></pre></div></div>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error: StackOverflowError:
 </code></pre></div></div>
 
 <p>As a visual check to confirm that our coefficients have converged, we show the densities and trace plots for our parameters using the <code class="language-plaintext highlighter-rouge">plot</code> functionality.</p>
@@ -832,38 +830,70 @@ $$</p>
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>2-element Array{ChainDataFrame,1}
 
 Summary Statistics
-. Omitted printing of 1 columns
-│ Row │ parameters │ mean      │ std      │ naive_se   │ mcse       │ ess  
-   │
-│     │ Symbol     │ Float64   │ Float64  │ Float64    │ Float64    │ Any  
-   │
-├─────┼────────────┼───────────┼──────────┼────────────┼────────────┼──────
-───┤
-│ 1   │ balance    │ 1.78999   │ 0.331794 │ 0.00494609 │ 0.00848061 │ 186.5
-65 │
-│ 2   │ income     │ -0.139602 │ 0.332703 │ 0.00495964 │ 0.011117   │ 967.8
-64 │
-│ 3   │ intercept  │ -4.12687  │ 0.545573 │ 0.00813292 │ 0.0172957  │ 65.36
-02 │
-│ 4   │ student    │ -0.918551 │ 0.636926 │ 0.00949473 │ 0.0309855  │ 529.7
-24 │
+. Omitted printing of 2 columns
+│ Row │ parameters       │ mean       │ std      │ naive_se   │ mcse       
+│
+│     │ Symbol           │ Float64    │ Float64  │ Float64    │ Float64    
+│
+├─────┼──────────────────┼────────────┼──────────┼────────────┼────────────
+┤
+│ 1   │ coefficients[1]  │ 0.407842   │ 0.463861 │ 0.0103723  │ 0.0132011  
+│
+│ 2   │ coefficients[2]  │ -0.130214  │ 0.469199 │ 0.0104916  │ 0.0131803  
+│
+│ 3   │ coefficients[3]  │ -0.0982566 │ 0.450733 │ 0.0100787  │ 0.0140963  
+│
+│ 4   │ coefficients[4]  │ 0.620113   │ 0.289531 │ 0.00647411 │ 0.0080144  
+│
+│ 5   │ coefficients[5]  │ 0.0278808  │ 0.439534 │ 0.00982827 │ 0.0126099  
+│
+│ 6   │ coefficients[6]  │ 0.0787792  │ 0.299914 │ 0.00670628 │ 0.00853917 
+│
+│ 7   │ coefficients[7]  │ -0.0765938 │ 0.280072 │ 0.0062626  │ 0.00682248 
+│
+│ 8   │ coefficients[8]  │ 0.131162   │ 0.262825 │ 0.00587694 │ 0.00751492 
+│
+│ 9   │ coefficients[9]  │ 0.282055   │ 0.454028 │ 0.0101524  │ 0.0100279  
+│
+│ 10  │ coefficients[10] │ -0.842593  │ 0.440175 │ 0.0098426  │ 0.0147895  
+│
+│ 11  │ intercept        │ 0.0511282  │ 0.182638 │ 0.0040839  │ 0.004774   
+│
+│ 12  │ σ₂               │ 0.465853   │ 0.11617  │ 0.00259765 │ 0.00488799 
+│
 
 Quantiles
-
-│ Row │ parameters │ 2.5%      │ 25.0%    │ 50.0%     │ 75.0%     │ 97.5%  
-  │
-│     │ Symbol     │ Float64   │ Float64  │ Float64   │ Float64   │ Float64
-  │
-├─────┼────────────┼───────────┼──────────┼───────────┼───────────┼────────
-──┤
-│ 1   │ balance    │ 1.20484   │ 1.57879  │ 1.77619   │ 1.9798    │ 2.41041
-  │
-│ 2   │ income     │ -0.782103 │ -0.36119 │ -0.135722 │ 0.0840768 │ 0.48844
-8 │
-│ 3   │ intercept  │ -5.01721  │ -4.39229 │ -4.08815  │ -3.81892  │ -3.3217
-8 │
-│ 4   │ student    │ -2.16432  │ -1.33493 │ -0.911954 │ -0.502552 │ 0.33238
-7 │
+. Omitted printing of 1 columns
+│ Row │ parameters       │ 2.5%      │ 25.0%       │ 50.0%      │ 75.0%    
+ │
+│     │ Symbol           │ Float64   │ Float64     │ Float64    │ Float64  
+ │
+├─────┼──────────────────┼───────────┼─────────────┼────────────┼──────────
+─┤
+│ 1   │ coefficients[1]  │ -0.504624 │ 0.12914     │ 0.423049   │ 0.678483 
+ │
+│ 2   │ coefficients[2]  │ -1.06901  │ -0.423824   │ -0.132534  │ 0.153955 
+ │
+│ 3   │ coefficients[3]  │ -1.06518  │ -0.367724   │ -0.0824292 │ 0.182855 
+ │
+│ 4   │ coefficients[4]  │ 0.0454532 │ 0.434371    │ 0.620299   │ 0.795896 
+ │
+│ 5   │ coefficients[5]  │ -0.835723 │ -0.252707   │ 0.0243348  │ 0.316249 
+ │
+│ 6   │ coefficients[6]  │ -0.493104 │ -0.115398   │ 0.080025   │ 0.268767 
+ │
+│ 7   │ coefficients[7]  │ -0.651514 │ -0.257678   │ -0.0700555 │ 0.0954144
+ │
+│ 8   │ coefficients[8]  │ -0.369457 │ -0.0378038  │ 0.133924   │ 0.296483 
+ │
+│ 9   │ coefficients[9]  │ -0.592153 │ -0.00703827 │ 0.265888   │ 0.56584  
+ │
+│ 10  │ coefficients[10] │ -1.75055  │ -1.09835    │ -0.832778  │ -0.578763
+ │
+│ 11  │ intercept        │ -0.302891 │ -0.0650322  │ 0.0531147  │ 0.161785 
+ │
+│ 12  │ σ₂               │ 0.300119  │ 0.383562    │ 0.445753   │ 0.526997 
+ │
 </code></pre></div></div>
 
 <h2 id="comparing-to-ols">Comparing to OLS</h2>
@@ -892,25 +922,15 @@ Quantiles
 <span class="k">end</span>
 </code></pre></div></div>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>prediction (generic function with 2 methods)
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>prediction (generic function with 1 method)
 </code></pre></div></div>
 
 <p>When we make predictions, we unstandardize them so they’re more understandable. We also add them to the original dataframes so they can be placed in context.</p>
 
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Calculate the predictions for the training and testing sets.</span>
 <span class="n">train_cut</span><span class="o">.</span><span class="n">BayesPredictions</span> <span class="o">=</span> <span class="n">unstandardize</span><span class="x">(</span><span class="n">prediction</span><span class="x">(</span><span class="n">chain</span><span class="x">,</span> <span class="n">train</span><span class="x">),</span> <span class="n">data</span><span class="o">.</span><span class="n">MPG</span><span class="x">);</span>
-</code></pre></div></div>
+<span class="n">test_cut</span><span class="o">.</span><span class="n">BayesPredictions</span> <span class="o">=</span> <span class="n">unstandardize</span><span class="x">(</span><span class="n">prediction</span><span class="x">(</span><span class="n">chain</span><span class="x">,</span> <span class="n">test</span><span class="x">),</span> <span class="n">data</span><span class="o">.</span><span class="n">MPG</span><span class="x">);</span>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error: type NamedTuple has no field coefficients
-</code></pre></div></div>
-
-<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">test_cut</span><span class="o">.</span><span class="n">BayesPredictions</span> <span class="o">=</span> <span class="n">unstandardize</span><span class="x">(</span><span class="n">prediction</span><span class="x">(</span><span class="n">chain</span><span class="x">,</span> <span class="n">test</span><span class="x">),</span> <span class="n">data</span><span class="o">.</span><span class="n">MPG</span><span class="x">);</span>
-</code></pre></div></div>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error: type NamedTuple has no field coefficients
-</code></pre></div></div>
-
-<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
 <span class="c"># Unstandardize the dependent variable.</span>
 <span class="n">train_cut</span><span class="o">.</span><span class="n">MPG</span> <span class="o">=</span> <span class="n">unstandardize</span><span class="x">(</span><span class="n">train_cut</span><span class="o">.</span><span class="n">MPG</span><span class="x">,</span> <span class="n">data</span><span class="o">.</span><span class="n">MPG</span><span class="x">);</span>
 <span class="n">test_cut</span><span class="o">.</span><span class="n">MPG</span> <span class="o">=</span> <span class="n">unstandardize</span><span class="x">(</span><span class="n">test_cut</span><span class="o">.</span><span class="n">MPG</span><span class="x">,</span> <span class="n">data</span><span class="o">.</span><span class="n">MPG</span><span class="x">);</span>
@@ -919,7 +939,7 @@ Quantiles
 <span class="n">first</span><span class="x">(</span><span class="n">test_cut</span><span class="x">,</span> <span class="mi">6</span><span class="x">)</span>
 </code></pre></div></div>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>6×12 DataFrame. Omitted printing of 6 columns
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>6×13 DataFrame. Omitted printing of 7 columns
 │ Row │ MPG     │ Cyl      │ Disp      │ HP        │ DRat      │ WT       │
 │     │ Float64 │ Float64  │ Float64   │ Float64   │ Float64   │ Float64  │
 ├─────┼─────────┼──────────┼───────────┼───────────┼───────────┼──────────┤
@@ -940,22 +960,10 @@ $$</p>
 <p>where <script type="math/tex">y_i</script> is the actual value (true MPG) and <script type="math/tex">\hat{y_i}</script> is the predicted value using either OLS or Bayesian linear regression. A lower SSE indicates a closer fit to the data.</p>
 
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">bayes_loss1</span> <span class="o">=</span> <span class="n">sum</span><span class="x">((</span><span class="n">train_cut</span><span class="o">.</span><span class="n">BayesPredictions</span> <span class="o">-</span> <span class="n">train_cut</span><span class="o">.</span><span class="n">MPG</span><span class="x">)</span><span class="o">.^</span><span class="mi">2</span><span class="x">)</span>
-</code></pre></div></div>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error: ArgumentError: column name :BayesPredictions not found in the data f
-rame
-</code></pre></div></div>
-
-<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ols_loss1</span> <span class="o">=</span> <span class="n">sum</span><span class="x">((</span><span class="n">train_cut</span><span class="o">.</span><span class="n">OLSPrediction</span> <span class="o">-</span> <span class="n">train_cut</span><span class="o">.</span><span class="n">MPG</span><span class="x">)</span><span class="o">.^</span><span class="mi">2</span><span class="x">)</span>
+<span class="n">ols_loss1</span> <span class="o">=</span> <span class="n">sum</span><span class="x">((</span><span class="n">train_cut</span><span class="o">.</span><span class="n">OLSPrediction</span> <span class="o">-</span> <span class="n">train_cut</span><span class="o">.</span><span class="n">MPG</span><span class="x">)</span><span class="o">.^</span><span class="mi">2</span><span class="x">)</span>
 
 <span class="n">bayes_loss2</span> <span class="o">=</span> <span class="n">sum</span><span class="x">((</span><span class="n">test_cut</span><span class="o">.</span><span class="n">BayesPredictions</span> <span class="o">-</span> <span class="n">test_cut</span><span class="o">.</span><span class="n">MPG</span><span class="x">)</span><span class="o">.^</span><span class="mi">2</span><span class="x">)</span>
-</code></pre></div></div>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error: ArgumentError: column name :BayesPredictions not found in the data f
-rame
-</code></pre></div></div>
-
-<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ols_loss2</span> <span class="o">=</span> <span class="n">sum</span><span class="x">((</span><span class="n">test_cut</span><span class="o">.</span><span class="n">OLSPrediction</span> <span class="o">-</span> <span class="n">test_cut</span><span class="o">.</span><span class="n">MPG</span><span class="x">)</span><span class="o">.^</span><span class="mi">2</span><span class="x">)</span>
+<span class="n">ols_loss2</span> <span class="o">=</span> <span class="n">sum</span><span class="x">((</span><span class="n">test_cut</span><span class="o">.</span><span class="n">OLSPrediction</span> <span class="o">-</span> <span class="n">test_cut</span><span class="o">.</span><span class="n">MPG</span><span class="x">)</span><span class="o">.^</span><span class="mi">2</span><span class="x">)</span>
 
 <span class="n">println</span><span class="x">(</span><span class="s">"Training set:
     Bayes loss: </span><span class="si">$$</span><span class="s">bayes_loss1
@@ -965,7 +973,12 @@ Test set:
     OLS loss: </span><span class="si">$$</span><span class="s">ols_loss2"</span><span class="x">)</span>
 </code></pre></div></div>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error: UndefVarError: bayes_loss1 not defined
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Training set:
+    Bayes loss: 67.58346459563484
+    OLS loss: 67.56037474764642
+Test set: 
+    Bayes loss: 275.9392016063293
+    OLS loss: 270.9481307076011
 </code></pre></div></div>
 
 <p>As we can see above, OLS and our Bayesian model fit our training set about the same. This is to be expected, given that it is our training set. But when we look at our test set, we see that the Bayesian linear regression model is better able to predict out of sample.</p>
