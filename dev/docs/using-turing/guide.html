@@ -951,7 +951,17 @@
   <li><code class="language-plaintext highlighter-rouge">prob"s = 1.0, m = 1.0 | model = gdemo, x = nothing, y = nothing"</code> calculates the joint probability of <code class="language-plaintext highlighter-rouge">s = 1</code> and <code class="language-plaintext highlighter-rouge">m = 1</code> ignoring <code class="language-plaintext highlighter-rouge">x</code> and <code class="language-plaintext highlighter-rouge">y</code>. <code class="language-plaintext highlighter-rouge">x</code> and <code class="language-plaintext highlighter-rouge">y</code> are ignored so they can be optionally dropped from the RHS of <code class="language-plaintext highlighter-rouge">|</code>, but it is recommended to define them.</li>
   <li><code class="language-plaintext highlighter-rouge">prob"s = 1.0, m = 1.0, x = 1.0 | model = gdemo, y = nothing"</code> calculates the joint probability of <code class="language-plaintext highlighter-rouge">s = 1</code>, <code class="language-plaintext highlighter-rouge">m = 1</code> and <code class="language-plaintext highlighter-rouge">x = 1</code> ignoring <code class="language-plaintext highlighter-rouge">y</code>.</li>
   <li><code class="language-plaintext highlighter-rouge">prob"s = 1.0, m = 1.0, x = 1.0, y = 1.0 | model = gdemo"</code> calculates the joint probability of all the variables.</li>
-  <li>After the MCMC sampling, given a <code class="language-plaintext highlighter-rouge">chain</code>, <code class="language-plaintext highlighter-rouge">prob"x = 1.0, y = 1.0 | chain = chain"</code> calculates the element-wise likelihood of <code class="language-plaintext highlighter-rouge">x = 1.0</code> and <code class="language-plaintext highlighter-rouge">y = 1.0</code> for each sample in <code class="language-plaintext highlighter-rouge">chain</code>.</li>
+  <li>After the MCMC sampling, given a <code class="language-plaintext highlighter-rouge">chain</code>, <code class="language-plaintext highlighter-rouge">prob"x = 1.0, y = 1.0 | chain = chain, model = gdemo"</code> calculates the element-wise likelihood of <code class="language-plaintext highlighter-rouge">x = 1.0</code> and <code class="language-plaintext highlighter-rouge">y = 1.0</code> for each sample in <code class="language-plaintext highlighter-rouge">chain</code>.</li>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td>If <code class="language-plaintext highlighter-rouge">save_state=true</code> was used during sampling (i.e., <code class="language-plaintext highlighter-rouge">sample(model, sampler, N; save_state=true)</code>), you can simply do ``prob”x = 1.0, y = 1.0</td>
+          <td>chain = chain”`.</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
 </ul>
 
 <p>In all the above cases, <code class="language-plaintext highlighter-rouge">logprob</code> can be used instead of <code class="language-plaintext highlighter-rouge">prob</code> to calculate the log probabilities instead.</p>
