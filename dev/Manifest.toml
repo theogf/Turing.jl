@@ -69,10 +69,10 @@ version = "0.4.2"
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[BenchmarkTools]]
-deps = ["JSON", "Printf", "Statistics"]
-git-tree-sha1 = "90b73db83791c5f83155016dd1cc1f684d4e1361"
+deps = ["JSON", "Logging", "Printf", "Statistics", "UUIDs"]
+git-tree-sha1 = "9e62e66db34540a0c919d72172cc2f642ac71260"
 uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-version = "0.4.3"
+version = "0.5.0"
 
 [[Bijectors]]
 deps = ["Distributions", "LinearAlgebra", "MappedArrays", "Random", "Reexport", "Requires", "Roots", "StatsFuns"]
@@ -106,9 +106,9 @@ version = "0.2.0"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "a4839bd26e3e7f4869a4cf6c31f9f93f47aac7c5"
+git-tree-sha1 = "c437ba8bb82f5ec9a5d8cb881031ffa2dbe1038c"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.5.0"
+version = "3.6.0"
 
 [[DataAPI]]
 git-tree-sha1 = "674b67f344687a88310213ddfa8a2b3c76cc4252"
@@ -205,21 +205,21 @@ version = "1.2.0"
 
 [[FFTW_jll]]
 deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "05674f209a6e3387dd103a945b0113eeb64b1a58"
+git-tree-sha1 = "ddb57f4cf125243b4aa4908c94d73a805f3cbf2c"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
-version = "3.3.9+3"
+version = "3.3.9+4"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "fec413d4fc547992eb62a5c544cedb6d7853c1f5"
+git-tree-sha1 = "85c6b57e2680fa28d5c8adc798967377646fbf66"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.8.4"
+version = "0.8.5"
 
 [[FiniteDiff]]
 deps = ["ArrayInterface", "LinearAlgebra", "Requires", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "eb90294af97b564e6036b49296479d7f667763c0"
+git-tree-sha1 = "aa78e468afa6a0fde472c3dba0782d1ab60b203d"
 uuid = "6a86dc24-6348-571c-b903-95158fe2bd41"
-version = "2.2.0"
+version = "2.2.1"
 
 [[ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "NaNMath", "Random", "SpecialFunctions", "StaticArrays"]
@@ -323,9 +323,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogDensityProblems]]
 deps = ["ArgCheck", "BenchmarkTools", "DiffResults", "DocStringExtensions", "Parameters", "Random", "Requires", "TransformVariables"]
-git-tree-sha1 = "76f423d36cd44773b7e16d802da172a74c8fe2c4"
+git-tree-sha1 = "77ac6c4bb1eae4072a5d0fcfba621020f7802cc2"
 uuid = "6fdf6af0-433a-55f7-b3ed-c6c6e0b8df7c"
-version = "0.10.1"
+version = "0.10.3"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
