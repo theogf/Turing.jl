@@ -681,27 +681,27 @@
 
 <h1 id="the-sampling-interface">The sampling interface</h1>
 
-<p>Turing implements a sampling interface (hosted at <a href="https://github.com/TuringLang/AbstractMCMC.jl">AbstractMCMC</a>) that is intended to provide a common framework for Markov Chain Monte Carlo samplers. The interface presents several structures and functions that one needs to overload in order to implement an interface-compatible sampler.</p>
+<p>Turing implements a sampling interface (hosted at <a href="https://github.com/TuringLang/AbstractMCMC.jl">AbstractMCMC</a>) that is intended to provide a common framework for Markov chain Monte Carlo samplers. The interface presents several structures and functions that one needs to overload in order to implement an interface-compatible sampler.</p>
 
-<p>This guide will demonstrate how to implement the interface without Turing, and then demonstrate how to implement the same sampler with Turing.</p>
+<p>This guide will demonstrate how to implement the interface without Turing.</p>
 
 <p><a id="Interface-overview-1"></a></p>
 
 <h2 id="interface-overview">Interface overview</h2>
 
-<p>Any implementation of an inference method that uses the AbstractMCMC interface should implement some combination of the following types and functions:</p>
+<p>Any implementation of an inference method that uses the AbstractMCMC interface should implement a subset of the following types and functions:</p>
 
 <ol>
   <li>A subtype of <code class="language-plaintext highlighter-rouge">AbstractSampler</code>, defined as a mutable struct containing state information or sampler parameters.</li>
-  <li>A subtype of <code class="language-plaintext highlighter-rouge">AbstractTransition</code>, which represents a single draw from the sampler.</li>
-  <li>A function <code class="language-plaintext highlighter-rouge">transition_type</code> which returns the <code class="language-plaintext highlighter-rouge">AbstractTransition</code> type used by an implementation of an <code class="language-plaintext highlighter-rouge">AbstractSampler</code>, or a function <code class="language-plaintext highlighter-rouge">transition_init</code> with returns a <code class="language-plaintext highlighter-rouge">Vector{AbstractTransition}</code> of length <code class="language-plaintext highlighter-rouge">N</code>.</li>
-  <li>A function <code class="language-plaintext highlighter-rouge">sample_init!</code> which performs any necessary set up.</li>
-  <li>A function <code class="language-plaintext highlighter-rouge">step!</code> which returns an <code class="language-plaintext highlighter-rouge">AbstractTransition</code>.</li>
-  <li>A function <code class="language-plaintext highlighter-rouge">sample_end!</code> which handles any sampler wrap-up.</li>
-  <li>A function <code class="language-plaintext highlighter-rouge">bundle_samples</code> which accepts an <code class="language-plaintext highlighter-rouge">Vector{&lt;:AbstractTransition}</code> and returns some <code class="language-plaintext highlighter-rouge">AbstractChains</code> object. Most implementations of the interface return an <code class="language-plaintext highlighter-rouge">MCMCChains.Chains</code> struct.</li>
+  <li>A function <code class="language-plaintext highlighter-rouge">sample_init!</code> which performs any necessary set-up (default: do not perform any set-up).</li>
+  <li>A function <code class="language-plaintext highlighter-rouge">step!</code> which returns a transition that represents a single draw from the sampler.</li>
+  <li>A function <code class="language-plaintext highlighter-rouge">transitions_init</code> which returns a container for the transitions obtained from the sampler (default: return a <code class="language-plaintext highlighter-rouge">Vector{T}</code> of length <code class="language-plaintext highlighter-rouge">N</code> where <code class="language-plaintext highlighter-rouge">T</code> is the type of the transition obtained in the first step and <code class="language-plaintext highlighter-rouge">N</code> is the number of requested samples).</li>
+  <li>A function <code class="language-plaintext highlighter-rouge">transitions_save!</code> which saves transitions to the container (default: save the transition of iteration <code class="language-plaintext highlighter-rouge">i</code> at position <code class="language-plaintext highlighter-rouge">i</code> in the vector of transitions).</li>
+  <li>A function <code class="language-plaintext highlighter-rouge">sample_end!</code> which handles any sampler wrap-up (default: do not perform any wrap-up).</li>
+  <li>A function <code class="language-plaintext highlighter-rouge">bundle_samples</code> which accepts the container of transitions and returns a collection of samples (default: return the vector of transitions).</li>
 </ol>
 
-<p>The interface methods with exclamation points are those that are intended to allow for some state mutation. Any mutating function is meant to allow mutation where needed – you might use:</p>
+<p>The interface methods with exclamation points are those that are intended to allow for state mutation. Any mutating function is meant to allow mutation where needed – you might use:</p>
 
 <ul>
   <li><code class="language-plaintext highlighter-rouge">sample_init!</code> to run some kind of sampler preparation, before sampling begins. This could mutate a sampler’s state.</li>
@@ -713,7 +713,7 @@
 
 <h2 id="why-do-you-have-an-interface">Why do you have an interface?</h2>
 
-<p>The motivation for the interface is to allow Julia’s fantastic probabilistic programming language community to have a set of standards and common implementations so we can all thrive together. Markov-Chain Monte Carlo methods tend to have a very similar framework to one another, and so a common interface should help more great inference methods built in single-purpose packages to experience more use among the community.</p>
+<p>The motivation for the interface is to allow Julia’s fantastic probabilistic programming language community to have a set of standards and common implementations so we can all thrive together. Markov chain Monte Carlo methods tend to have a very similar framework to one another, and so a common interface should help more great inference methods built in single-purpose packages to experience more use among the community.</p>
 
 <p><a id="Implementing-Metropolis-Hastings-without-Turing-1"></a></p>
 
@@ -730,7 +730,7 @@
 <p>Let’s begin by importing the relevant libraries. We’ll import <code class="language-plaintext highlighter-rouge">AbstracMCMC</code>, which contains the interface framework we’ll fill out. We also need <code class="language-plaintext highlighter-rouge">Distributions</code> and <code class="language-plaintext highlighter-rouge">Random</code>.</p>
 
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Import the relevant libraries.</span>
-<span class="k">using</span> <span class="n">AbstractMCMC</span>
+<span class="k">import</span> <span class="n">AbstractMCMC</span>
 <span class="k">using</span> <span class="n">Distributions</span>
 <span class="k">using</span> <span class="n">Random</span>
 </code></pre></div></div>
@@ -739,24 +739,6 @@
 
 <p>From <code class="language-plaintext highlighter-rouge">Distributions</code>, we need <code class="language-plaintext highlighter-rouge">Sampleable</code>, <code class="language-plaintext highlighter-rouge">VariateForm</code>, and <code class="language-plaintext highlighter-rouge">ValueSupport</code>, three abstract types that define a distribution. Models in the interface are assumed to be subtypes of <code class="language-plaintext highlighter-rouge">Sampleable{VariateForm, ValueSupport}</code>. In this section our model is going be be extremely simple, so we will not end up using these except to make sure that the inference functions are dispatching correctly.</p>
 
-<p>We need the <code class="language-plaintext highlighter-rouge">MCMCChains.Chains</code> function, because at the end of sampling we need to be able to convert a vector of <code class="language-plaintext highlighter-rouge">&lt;:AbstractTransitions</code> to an <code class="language-plaintext highlighter-rouge">MCMCChains</code> object.</p>
-
-<p>Lastly, we import the specific functions from <code class="language-plaintext highlighter-rouge">AbstractMCMC</code> that we need to overload. Because Metropolis-Hastings is so simple we only need a few functions/types:</p>
-
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">step!</code></li>
-  <li><code class="language-plaintext highlighter-rouge">AbstractSampler</code></li>
-  <li><code class="language-plaintext highlighter-rouge">AbstractTransition</code></li>
-  <li><code class="language-plaintext highlighter-rouge">transition_type</code></li>
-</ul>
-
-<p>More complex inference methods may need to import additional functions. For now, let’s focus on the code:</p>
-
-<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Import specific functions and types to use or overload.</span>
-<span class="k">import</span> <span class="n">MCMCChains</span><span class="o">:</span> <span class="n">Chains</span>
-<span class="k">import</span> <span class="n">AbstractMCMC</span><span class="o">:</span> <span class="n">step!</span><span class="x">,</span> <span class="n">AbstractSampler</span><span class="x">,</span> <span class="n">AbstractTransition</span><span class="x">,</span> <span class="n">transition_type</span><span class="x">,</span> <span class="n">bundle_samples</span>
-</code></pre></div></div>
-
 <p><a id="Sampler-1"></a></p>
 
 <h3 id="sampler">Sampler</h3>
@@ -764,9 +746,9 @@
 <p>Let’s begin our sampler definition by defining a sampler called <code class="language-plaintext highlighter-rouge">MetropolisHastings</code> which is a subtype of <code class="language-plaintext highlighter-rouge">AbstractSampler</code>. Correct typing is very important for proper interface implementation – if you are missing a subtype, your method may not be dispatched to when you call <code class="language-plaintext highlighter-rouge">sample</code>.</p>
 
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Define a sampler type.</span>
-<span class="k">struct</span><span class="nc"> MetropolisHastings</span><span class="x">{</span><span class="n">T</span><span class="x">,</span> <span class="n">D</span><span class="x">}</span> <span class="o">&lt;:</span> <span class="n">AbstractSampler</span> 
-    <span class="n">init_θ</span> <span class="o">::</span> <span class="n">T</span>
-    <span class="n">proposal</span> <span class="o">::</span> <span class="n">D</span>
+<span class="k">struct</span><span class="nc"> MetropolisHastings</span><span class="x">{</span><span class="n">T</span><span class="x">,</span> <span class="n">D</span><span class="x">}</span> <span class="o">&lt;:</span> <span class="n">AbstractMCMC</span><span class="o">.</span><span class="n">AbstractSampler</span> 
+    <span class="n">init_θ</span><span class="o">::</span><span class="n">T</span>
+    <span class="n">proposal</span><span class="o">::</span><span class="n">D</span>
 <span class="k">end</span>
 
 <span class="c"># Default constructors.</span>
@@ -776,7 +758,7 @@
 
 <p>Above, we have defined a sampler that stores the initial parameterization of the prior, and a distribution object from which proposals are drawn. You can have a struct that has no fields, and simply use it for dispatching onto the relevant functions, or you can store a large amount of state information in your sampler.</p>
 
-<p>The general intuition for what to store in your sampler struct is that anything you may need to perform inference between samples but you don’t want to store in an <code class="language-plaintext highlighter-rouge">AbstractTransition</code> should go into the sampler struct. It’s the only way you can carry non-sample related state information between <code class="language-plaintext highlighter-rouge">step!</code> calls.</p>
+<p>The general intuition for what to store in your sampler struct is that anything you may need to perform inference between samples but you don’t want to store in a transition should go into the sampler struct. It’s the only way you can carry non-sample related state information between <code class="language-plaintext highlighter-rouge">step!</code> calls.</p>
 
 <p><a id="Model-1"></a></p>
 
@@ -787,8 +769,8 @@
 <p>Note that we only have to do this because we are not yet integrating the sampler with Turing – Turing has a very sophisticated modelling engine that removes the need to define custom model structs.</p>
 
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Define a model type. Stores the log density function.</span>
-<span class="k">struct</span><span class="nc"> DensityModel</span><span class="x">{</span><span class="n">F</span><span class="o">&lt;:</span><span class="kt">Function</span><span class="x">}</span> <span class="o">&lt;:</span> <span class="n">AbstractModel</span>
-    <span class="n">ℓπ</span> <span class="o">::</span> <span class="n">F</span>
+<span class="k">struct</span><span class="nc"> DensityModel</span><span class="x">{</span><span class="n">F</span><span class="o">&lt;:</span><span class="kt">Function</span><span class="x">}</span> <span class="o">&lt;:</span> <span class="n">AbstractMCMC</span><span class="o">.</span><span class="n">AbstractModel</span>
+    <span class="n">ℓπ</span><span class="o">::</span><span class="n">F</span>
 <span class="k">end</span>
 </code></pre></div></div>
 
@@ -796,25 +778,20 @@
 
 <h3 id="transition">Transition</h3>
 
-<p>The next step is to define some subtype of <code class="language-plaintext highlighter-rouge">AbstractTransition</code> which we will return from each <code class="language-plaintext highlighter-rouge">step!</code> call. We’ll keep it simple by just defining a wrapper struct that contains the parameter draws and the log density of that draw:</p>
+<p>The next step is to define some transition which we will return from each <code class="language-plaintext highlighter-rouge">step!</code> call. We’ll keep it simple by just defining a wrapper struct that contains the parameter draws and the log density of that draw:</p>
 
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a very basic Transition type, only stores the </span>
 <span class="c"># parameter draws and the log probability of the draw.</span>
-<span class="k">struct</span><span class="nc"> Transition</span><span class="x">{</span><span class="n">T</span><span class="o">&lt;:</span><span class="kt">Union</span><span class="x">{</span><span class="kt">Vector</span><span class="x">{</span><span class="o">&lt;:</span><span class="kt">Real</span><span class="x">},</span> <span class="o">&lt;:</span><span class="kt">Real</span><span class="x">},</span> <span class="n">L</span><span class="o">&lt;:</span><span class="kt">Real</span><span class="x">}</span> <span class="o">&lt;:</span> <span class="n">AbstractTransition</span>
-    <span class="n">θ</span> <span class="o">::</span> <span class="n">T</span>
-    <span class="n">lp</span> <span class="o">::</span> <span class="n">L</span>
+<span class="k">struct</span><span class="nc"> Transition</span><span class="x">{</span><span class="n">T</span><span class="x">,</span> <span class="n">L</span><span class="x">}</span>
+    <span class="n">θ</span><span class="o">::</span><span class="n">T</span>
+    <span class="n">lp</span><span class="o">::</span><span class="n">L</span>
 <span class="k">end</span>
 
 <span class="c"># Store the new draw and its log density.</span>
 <span class="n">Transition</span><span class="x">(</span><span class="n">model</span><span class="o">::</span><span class="n">DensityModel</span><span class="x">,</span> <span class="n">θ</span><span class="x">)</span> <span class="o">=</span> <span class="n">Transition</span><span class="x">(</span><span class="n">θ</span><span class="x">,</span> <span class="n">ℓπ</span><span class="x">(</span><span class="n">model</span><span class="x">,</span> <span class="n">θ</span><span class="x">))</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">Transition</code> can now store any type of parameter, whether it’s a vector of draws from multiple parameters or a single univariate draw. We should also tell the interface what specific subtype of <code class="language-plaintext highlighter-rouge">AbstractTransition</code> we’re going to use, so we can just define a new method on <code class="language-plaintext highlighter-rouge">transition_type</code>:</p>
-
-<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Tell the interface what transition type we would like to use.</span>
-<span class="n">transition_type</span><span class="x">(</span><span class="n">model</span><span class="o">::</span><span class="n">DensityModel</span><span class="x">,</span> <span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">)</span> <span class="o">=</span> 
-    <span class="n">typeof</span><span class="x">(</span><span class="n">Transition</span><span class="x">(</span><span class="n">spl</span><span class="o">.</span><span class="n">init_θ</span><span class="x">,</span> <span class="n">ℓπ</span><span class="x">(</span><span class="n">model</span><span class="x">,</span> <span class="n">spl</span><span class="o">.</span><span class="n">init_θ</span><span class="x">)))</span>
-</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">Transition</code> can now store any type of parameter, whether it’s a vector of draws from multiple parameters or a single univariate draw.</p>
 
 <p><a id="Metropolis-Hastings-1"></a></p>
 
@@ -858,11 +835,12 @@
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Define the first step! function, which is called at the </span>
 <span class="c"># beginning of sampling. Return the initial parameter used</span>
 <span class="c"># to define the sampler.</span>
-<span class="k">function</span><span class="nf"> step</span><span class="o">!</span><span class="x">(</span>
+<span class="k">function</span><span class="nf"> AbstractMCMC</span><span class="o">.</span><span class="n">step!</span><span class="x">(</span>
     <span class="n">rng</span><span class="o">::</span><span class="kt">AbstractRNG</span><span class="x">,</span>
     <span class="n">model</span><span class="o">::</span><span class="n">DensityModel</span><span class="x">,</span>
     <span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span>
-    <span class="n">N</span><span class="o">::</span><span class="kt">Integer</span><span class="x">;</span>
+    <span class="n">N</span><span class="o">::</span><span class="kt">Integer</span><span class="x">,</span>
+    <span class="o">::</span><span class="kt">Nothing</span><span class="x">;</span>
     <span class="n">kwargs</span><span class="o">...</span>
 <span class="x">)</span>
     <span class="k">return</span> <span class="n">Transition</span><span class="x">(</span><span class="n">model</span><span class="x">,</span> <span class="n">spl</span><span class="o">.</span><span class="n">init_θ</span><span class="x">)</span>
@@ -885,11 +863,13 @@
     <span class="n">Transition</span><span class="x">(</span><span class="n">model</span><span class="x">,</span> <span class="n">θ</span> <span class="o">+</span> <span class="n">rand</span><span class="x">(</span><span class="n">spl</span><span class="o">.</span><span class="n">proposal</span><span class="x">))</span>
 <span class="n">propose</span><span class="x">(</span><span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span> <span class="n">model</span><span class="o">::</span><span class="n">DensityModel</span><span class="x">,</span> <span class="n">θ</span><span class="o">::</span><span class="kt">Vector</span><span class="x">{</span><span class="o">&lt;:</span><span class="kt">Real</span><span class="x">})</span> <span class="o">=</span> 
     <span class="n">Transition</span><span class="x">(</span><span class="n">model</span><span class="x">,</span> <span class="n">θ</span> <span class="o">+</span> <span class="n">rand</span><span class="x">(</span><span class="n">spl</span><span class="o">.</span><span class="n">proposal</span><span class="x">))</span>
-<span class="n">propose</span><span class="x">(</span><span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span> <span class="n">model</span><span class="o">::</span><span class="n">DensityModel</span><span class="x">,</span> <span class="n">t</span><span class="o">::</span><span class="n">Transition</span><span class="x">)</span> <span class="o">=</span> <span class="n">propose</span><span class="x">(</span><span class="n">spl</span><span class="x">,</span> <span class="n">model</span><span class="x">,</span> <span class="n">t</span><span class="o">.</span><span class="n">θ</span><span class="x">)</span>
+<span class="n">propose</span><span class="x">(</span><span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span> <span class="n">model</span><span class="o">::</span><span class="n">DensityModel</span><span class="x">,</span> <span class="n">t</span><span class="o">::</span><span class="n">Transition</span><span class="x">)</span> <span class="o">=</span>
+    <span class="n">propose</span><span class="x">(</span><span class="n">spl</span><span class="x">,</span> <span class="n">model</span><span class="x">,</span> <span class="n">t</span><span class="o">.</span><span class="n">θ</span><span class="x">)</span>
 
-<span class="c"># Calculates the probability `q(θ | θcond)`, using the proposal distribution `spl.proposal`.</span>
+<span class="c"># Calculates the probability `q(θ|θcond)`, using the proposal distribution `spl.proposal`.</span>
 <span class="n">q</span><span class="x">(</span><span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span> <span class="n">θ</span><span class="o">::</span><span class="kt">Real</span><span class="x">,</span> <span class="n">θcond</span><span class="o">::</span><span class="kt">Real</span><span class="x">)</span> <span class="o">=</span> <span class="n">logpdf</span><span class="x">(</span><span class="n">spl</span><span class="o">.</span><span class="n">proposal</span><span class="x">,</span> <span class="n">θ</span> <span class="o">-</span> <span class="n">θcond</span><span class="x">)</span>
-<span class="n">q</span><span class="x">(</span><span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span> <span class="n">θ</span><span class="o">::</span><span class="kt">Vector</span><span class="x">{</span><span class="o">&lt;:</span><span class="kt">Real</span><span class="x">},</span> <span class="n">θcond</span><span class="o">::</span><span class="kt">Vector</span><span class="x">{</span><span class="o">&lt;:</span><span class="kt">Real</span><span class="x">})</span> <span class="o">=</span> <span class="n">logpdf</span><span class="x">(</span><span class="n">spl</span><span class="o">.</span><span class="n">proposal</span><span class="x">,</span> <span class="n">θ</span> <span class="o">-</span> <span class="n">θcond</span><span class="x">)</span>
+<span class="n">q</span><span class="x">(</span><span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span> <span class="n">θ</span><span class="o">::</span><span class="kt">Vector</span><span class="x">{</span><span class="o">&lt;:</span><span class="kt">Real</span><span class="x">},</span> <span class="n">θcond</span><span class="o">::</span><span class="kt">Vector</span><span class="x">{</span><span class="o">&lt;:</span><span class="kt">Real</span><span class="x">})</span> <span class="o">=</span>
+    <span class="n">logpdf</span><span class="x">(</span><span class="n">spl</span><span class="o">.</span><span class="n">proposal</span><span class="x">,</span> <span class="n">θ</span> <span class="o">-</span> <span class="n">θcond</span><span class="x">)</span>
 <span class="n">q</span><span class="x">(</span><span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span> <span class="n">t1</span><span class="o">::</span><span class="n">Transition</span><span class="x">,</span> <span class="n">t2</span><span class="o">::</span><span class="n">Transition</span><span class="x">)</span> <span class="o">=</span> <span class="n">q</span><span class="x">(</span><span class="n">spl</span><span class="x">,</span> <span class="n">t1</span><span class="o">.</span><span class="n">θ</span><span class="x">,</span> <span class="n">t2</span><span class="o">.</span><span class="n">θ</span><span class="x">)</span>
 
 <span class="c"># Calculate the density of the model given some parameterization.</span>
@@ -899,7 +879,7 @@
 <span class="c"># Define the other step function. Returns a Transition containing</span>
 <span class="c"># either a new proposal (if accepted) or the previous proposal </span>
 <span class="c"># (if not accepted).</span>
-<span class="k">function</span><span class="nf"> step</span><span class="o">!</span><span class="x">(</span>
+<span class="k">function</span><span class="nf"> AbstractMCMC</span><span class="o">.</span><span class="n">step!</span><span class="x">(</span>
     <span class="n">rng</span><span class="o">::</span><span class="kt">AbstractRNG</span><span class="x">,</span>
     <span class="n">model</span><span class="o">::</span><span class="n">DensityModel</span><span class="x">,</span>
     <span class="n">spl</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span>
@@ -926,15 +906,16 @@
 
 <h3 id="chains">Chains</h3>
 
-<p>The last piece in our puzzle is a <code class="language-plaintext highlighter-rouge">bundle_samples</code> function, which accepts a <code class="language-plaintext highlighter-rouge">Vector{T&lt;:Transition}</code> and returns an <code class="language-plaintext highlighter-rouge">MCMCChains.Chains</code> struct. Fortunately, our <code class="language-plaintext highlighter-rouge">Transition</code> is incredibly simple, and we only need to build a little bit of functionality to accept custom parameter names passed in by the user.</p>
+<p>In the default implementation, <code class="language-plaintext highlighter-rouge">sample</code> just returns a vector of all transitions. If instead you would like to obtain a <code class="language-plaintext highlighter-rouge">Chains</code> object (e.g., to simplify downstream analysis), you have to implement the <code class="language-plaintext highlighter-rouge">bundle_samples</code> function as well. It accepts the vector of transitions and returns a collection of samples. Fortunately, our <code class="language-plaintext highlighter-rouge">Transition</code> is incredibly simple, and we only need to build a little bit of functionality to accept custom parameter names passed in by the user.</p>
 
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># A basic chains constructor that works with the Transition struct we defined.</span>
-<span class="k">function</span><span class="nf"> bundle_samples</span><span class="x">(</span>
+<span class="k">function</span><span class="nf"> AbstractMCMC</span><span class="o">.</span><span class="n">bundle_samples</span><span class="x">(</span>
     <span class="n">rng</span><span class="o">::</span><span class="kt">AbstractRNG</span><span class="x">,</span> 
-    <span class="n">ℓ</span><span class="o">::</span><span class="n">AbstractModel</span><span class="x">,</span> 
+    <span class="n">ℓ</span><span class="o">::</span><span class="n">DensityModel</span><span class="x">,</span> 
     <span class="n">s</span><span class="o">::</span><span class="n">MetropolisHastings</span><span class="x">,</span> 
     <span class="n">N</span><span class="o">::</span><span class="kt">Integer</span><span class="x">,</span> 
-    <span class="n">ts</span><span class="o">::</span><span class="kt">Vector</span><span class="x">{</span><span class="o">&lt;:</span><span class="n">AbstractTransition</span><span class="x">};</span> 
+    <span class="n">ts</span><span class="o">::</span><span class="kt">Vector</span><span class="x">{</span><span class="o">&lt;:</span><span class="n">Transition</span><span class="x">},</span>
+    <span class="n">chain_type</span><span class="o">::</span><span class="kt">Type</span><span class="x">{</span><span class="kt">Any</span><span class="x">};</span>
     <span class="n">param_names</span><span class="o">=</span><span class="nb">missing</span><span class="x">,</span>
     <span class="n">kwargs</span><span class="o">...</span>
 <span class="x">)</span>
@@ -955,6 +936,8 @@
 </code></pre></div></div>
 
 <p>All done!</p>
+
+<p>You can even implement different output formats by implementing <code class="language-plaintext highlighter-rouge">bundle_samples</code> for different <code class="language-plaintext highlighter-rouge">chain_type</code>s, which can be provided as keyword argument to <code class="language-plaintext highlighter-rouge">sample</code>. As default <code class="language-plaintext highlighter-rouge">sample</code> uses <code class="language-plaintext highlighter-rouge">chain_type = Any</code>.</p>
 
 <p><a id="Testing-the-implementation-1"></a></p>
 
